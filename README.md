@@ -115,7 +115,14 @@ Handy for *Trigger Happy* / region behaviours: drop a macro on the dungeon door.
 `manifest.json` is musslop's loop manifest: `loops[]` with `file`, `duration_sec`, `loop`,
 `loop_start_sample`, `downbeats_sec`, `transition_points_sec`, `tail_file`, `stinger`; `scenes[]` with
 `loop_index`, `cue`, `hotkey`. The player (`scripts/loop-player.js`) has no Foundry dependencies and
-runs in a bare page — that's how it is tested.
+runs in a bare page.
+
+## Testing
+
+The module is tested without a Foundry licence: the real module code runs in headless Chromium
+against a stub of the documented Foundry v12/v13 client API (GM and players in separate tabs,
+synchronised over the module socket). See [`tests/README.md`](tests/README.md). A final check in a
+real Foundry world is still recommended before a release.
 
 ## Roadmap
 

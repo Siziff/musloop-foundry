@@ -14,7 +14,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           jq --arg v "$VERSION" '.version=$v' module.json > m.json && mv m.json module.json
       - name: Zip module
-        run: zip -r module.zip module.json LICENSE README.md scripts templates styles lang
+        run: zip -r module.zip module.json LICENSE README.md scripts templates styles lang vendor
       - uses: softprops/action-gh-release@v2
         with:
           files: |

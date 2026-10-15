@@ -29,7 +29,8 @@ export class MusslopPlayer {
     this.ctx = ctx;
     this.master = ctx.createGain();
     this.master.gain.value = 1;
-    this.master.connect(destination || ctx.destination);
+    this._dest = destination || ctx.destination;
+    this.master.connect(this._dest);
 
     this.track = null;        // { slug, root, manifest, buffers: Map(file -> AudioBuffer) }
     this.loops = [];          // manifest.loops

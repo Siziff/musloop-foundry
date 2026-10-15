@@ -49,5 +49,6 @@
   "MUSSLOP.Install": "Install",
   "MUSSLOP.Installed": "installed",
   "MUSSLOP.Setting.PackSources": "Extra pack sources",
-  "MUSSLOP.Setting.PackSourcesHint": "Additional pack index URLs (one per line or space-separated). The official index is always included."
+  "MUSSLOP.Setting.PackSourcesHint": "Additional pack index URLs (one per line or space-separated). The official index is always included.",
+  "MUSSLOP.ClickToHear": "musslop: click anywhere in Foundry to hear the music."
 }

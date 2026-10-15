@@ -37,6 +37,11 @@ Hooks.once("init", () => {
     name: "MUSSLOP.Keybind.Fade", editable: [{ key: "KeyF", modifiers: ["Alt"] }], restricted: true,
     onDown: () => { controller.fade(2.5); return true; },
   });
+});
+
+// Scene keybindings need a formatted name ("scene 3"); translations are only
+// loaded at i18nInit (still before setup, so registering keybindings is allowed).
+Hooks.once("i18nInit", () => {
   for (let n = 1; n <= 9; n++) {
     game.keybindings.register(MODULE_ID, `scene${n}`, {
       name: game.i18n.format("MUSSLOP.Keybind.Scene", { n }),
@@ -55,6 +60,8 @@ Hooks.once("ready", async () => {
   await controller.refreshLibrary();
   // players: ask the GM what is playing (late join)
   if (!game.user.isGM) setTimeout(() => controller.hello(), 1500);
+  // when the player first clicks (audio unlocked) and music is already running, re-sync
+  if (!game.user.isGM && game.audio.locked !== false) game.audio.unlock?.then(() => controller.hello());
   // expose a small API for macros: game.modules.get("musslop-foundry").api
   const mod = game.modules.get(MODULE_ID);
   if (mod) mod.api = {

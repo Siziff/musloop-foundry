@@ -49,5 +49,6 @@
   "MUSSLOP.Install": "Установить",
   "MUSSLOP.Installed": "установлен",
   "MUSSLOP.Setting.PackSources": "Дополнительные источники паков",
-  "MUSSLOP.Setting.PackSourcesHint": "URL индексов паков (через пробел или с новой строки). Официальный индекс подключён всегда."
+  "MUSSLOP.Setting.PackSourcesHint": "URL индексов паков (через пробел или с новой строки). Официальный индекс подключён всегда.",
+  "MUSSLOP.ClickToHear": "musslop: кликните в любом месте Foundry, чтобы услышать музыку."
 }

@@ -33,16 +33,35 @@ class Controller {
 
   get isGM() { return game.user.isGM; }
 
-  /** Lazily create the player on Foundry's music context. */
+  /**
+   * Lazily create the player on Foundry's music context. The context only
+   * exists after the browser allowed audio (first click/key in Foundry), so
+   * callers that may run before that await `readyPlayer()` instead.
+   */
   ensurePlayer() {
     if (this.player) return this.player;
     const ctx = game.audio.music || game.audio.context;
-    this.player = new MusslopPlayer(ctx);
+    if (!ctx) throw new Error("audio is locked until the first click in Foundry");
+    // connect through Foundry's music gain node so the core "Music" volume slider applies
+    this.player = new MusslopPlayer(ctx, { destination: ctx.gainNode || null });
     this.player.setVolume(game.settings.get(MODULE_ID, "volume"));
     this.player.tails = game.settings.get(MODULE_ID, "tails");
     this.player.transitionMode = this.mode;
     this.player.onState = () => this.emit();
     return this.player;
+  }
+
+  /** Wait until the browser unlocked audio (Foundry: game.audio.unlock), then return the player. */
+  async readyPlayer() {
+    if (this.player) return this.player;
+    if (!(game.audio.music || game.audio.context)) {
+      if (!this._unlockNoted && !this.isGM) {
+        this._unlockNoted = true;
+        ui.notifications?.info(i18n("MUSSLOP.ClickToHear"));
+      }
+      await game.audio.unlock;
+    }
+    return this.ensurePlayer();
   }
 
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
@@ -84,7 +103,7 @@ class Controller {
     if (!this.tracks.length) await this.refreshLibrary();
     const entry = this.tracks.find(t => t.slug === slug);
     if (!entry) { ui.notifications?.warn(`musslop: track "${slug}" not found in Data/musslop`); return null; }
-    const p = this.ensurePlayer();
+    const p = await this.readyPlayer();
     this.loading = { done: 0, total: 1 };
     this.emit();
     try {
@@ -166,8 +185,16 @@ class Controller {
     this._stateTimer = setInterval(tick, 20000);
   }
 
-  async handle(msg) {
+  /** Socket entry point: process GM messages strictly in order (a "state" must
+   * not overtake a "play" that is still loading the track). */
+  handle(msg) {
     if (!msg || msg.from === game.user.id) return;
+    msg._recv = performance.now();
+    this._queue = (this._queue || Promise.resolve()).then(() => this._handle(msg)).catch(e => log.error(e));
+    return this._queue;
+  }
+
+  async _handle(msg) {
     // only the active GM's messages drive playback
     const sender = game.users.get(msg.from);
     if (msg.op === "hello") {
@@ -178,10 +205,16 @@ class Controller {
     try {
       switch (msg.op) {
         case "load": await this.loadTrack(msg.slug, { broadcast: false }); break;
-        case "play":
+        case "play": {
+          const t0 = performance.now();
           if (this.track?.slug !== msg.slug) await this.loadTrack(msg.slug, { broadcast: false });
-          this.play(msg.index, { broadcast: false }); break;
-        case "cue": this.ensurePlayer().applyCue(msg.decision); break;
+          this.play(msg.index, { broadcast: false });
+          // loading (or waiting for the player's first click) took a while: the GM is
+          // already ahead — ask for a snapshot now instead of waiting for the next one
+          if (performance.now() - t0 > 400) this.hello();
+          break;
+        }
+        case "cue": (await this.readyPlayer()).applyCue(msg.decision); break;
         case "cancel": this.cancel({ broadcast: false }); break;
         case "stop": this.stop({ broadcast: false }); break;
         case "fade": this.fade(msg.sec, { broadcast: false }); break;
@@ -194,12 +227,21 @@ class Controller {
 
   /** Late join / drift correction from the GM's snapshot. */
   async _applyState(msg) {
-    const snap = msg.snapshot;
+    let snap = msg.snapshot;
     if (msg.mode) this.setMode(msg.mode, { broadcast: false });
     if (!snap?.playing) { if (this.player?.playing) this.stop({ broadcast: false }); return; }
     if (this.track?.slug !== msg.slug) await this.loadTrack(msg.slug, { broadcast: false });
-    const p = this.ensurePlayer();
+    const p = await this.readyPlayer();
     if (snap.crossfade != null) p.crossfade = snap.crossfade;
+    // the snapshot may have waited (track loading, audio unlock): move it forward by that time
+    const waited = msg._recv ? (performance.now() - msg._recv) / 1000 : 0;
+    const cur = p.loops[snap.loopIndex];
+    if (waited > 0 && snap.pos != null && cur) {
+      const len = cur.duration_sec, ls = (cur.loop_start_sample || 0) / (cur.sample_rate || 44100);
+      let pos = snap.pos + waited;
+      if (pos >= len && cur.loop !== false && len - ls > 0.5) pos = ls + ((pos - ls) % (len - ls));
+      snap = { ...snap, pos: Math.min(pos, len - 0.05) };
+    }
     const localPos = p.playing && p.loopIndex === snap.loopIndex ? p.position() : null;
     // only re-sync when we are off by more than 400 ms (or not playing the same part)
     if (localPos == null || Math.abs(localPos - snap.pos) > 0.4) p.resumeFrom(snap);

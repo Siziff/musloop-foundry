@@ -4,6 +4,28 @@
  */
 import { MODULE_ID, ROOT_DIR, log } from "./const.js";
 
+/** JSZip: Foundry does not expose it as a global — use ours (vendor/jszip.min.js, MIT). */
+async function getJSZip() {
+  if (globalThis.JSZip) return globalThis.JSZip;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = `modules/${MODULE_ID}/vendor/jszip.min.js`;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("could not load vendor/jszip.min.js"));
+    document.head.appendChild(s);
+  });
+  if (!globalThis.JSZip) throw new Error("JSZip failed to initialise");
+  return globalThis.JSZip;
+}
+
+/** FilePicker.browse returns URL-encoded paths ("My%20Track"); compare/fetch decoded names. */
+const decodePath = p => { try { return decodeURIComponent(p); } catch (e) { return p; } };
+
+/** Folder name for a track: keep letters of any script (Cyrillic, CJK…), like musslop's export. */
+export function slugify(s) {
+  return String(s || "").normalize("NFC").replace(/[^\p{L}\p{N}_\-]+/gu, "_").replace(/^_+|_+$/g, "") || "track";
+}
+
 function FP() {
   // v13: foundry.applications.apps.FilePicker.implementation ; v12: global FilePicker
   return globalThis.foundry?.applications?.apps?.FilePicker?.implementation || globalThis.FilePicker;
@@ -22,12 +44,13 @@ export async function scanLibrary() {
   let root;
   try { root = await fp.browse("data", ROOT_DIR); }
   catch (e) { return out; } // folder does not exist yet
-  for (const dir of root.dirs || []) {
+  for (const rawDir of root.dirs || []) {
+    const dir = decodePath(rawDir);
     try {
       const d = await fp.browse("data", dir);
-      const manifestPath = (d.files || []).find(f => f.endsWith("/manifest.json"));
+      const manifestPath = (d.files || []).map(decodePath).find(f => f.endsWith("/manifest.json"));
       if (!manifestPath) continue;
-      const manifest = await (await fetch(manifestPath, { cache: "no-store" })).json();
+      const manifest = await (await fetch(encodeURI(manifestPath), { cache: "no-store" })).json();
       if (manifest.format !== "musslop-loops") continue;
       out.push({ dir, slug: dir.split("/").pop(), name: manifest.track || dir.split("/").pop(), manifest });
     } catch (e) { log.warn("skip", dir, e); }
@@ -38,7 +61,7 @@ export async function scanLibrary() {
 
 /** Fetch a file of a track as ArrayBuffer. */
 export async function fetchTrackFile(track, file) {
-  const r = await fetch(`${track.dir}/${file}`, { cache: "force-cache" });
+  const r = await fetch(encodeURI(`${track.dir}/${file}`), { cache: "force-cache" });
   if (!r.ok) throw new Error(`${file}: HTTP ${r.status}`);
   return r.arrayBuffer();
 }
@@ -51,15 +74,13 @@ export async function fetchTrackFile(track, file) {
  * @returns {{slug:string, dir:string, files:number, manifest:object}}
  */
 export async function importZip(zipFile, onProgress) {
-  const JSZip = globalThis.JSZip;
-  if (!JSZip) throw new Error("JSZip is not available in this Foundry build");
+  const JSZip = await getJSZip();
   const zip = await JSZip.loadAsync(zipFile);
   const manifestEntry = zip.file("manifest.json");
   if (!manifestEntry) throw new Error("manifest.json not found — is this a musslop export?");
   const manifest = JSON.parse(await manifestEntry.async("string"));
   if (manifest.format !== "musslop-loops") throw new Error("Not a musslop-loops manifest");
-  const slug = (manifest.slug || manifest.track || (zipFile.name || "track").replace(/_foundry\.zip$|\.zip$/i, ""))
-    .replace(/[^\w\-]+/g, "_").replace(/^_+|_+$/g, "") || "track";
+  const slug = slugify(manifest.slug || manifest.track || (zipFile.name || "track").replace(/_foundry\.zip$|\.zip$/i, ""));
   const dir = `${ROOT_DIR}/${slug}`;
   await ensureDir(ROOT_DIR);
   await ensureDir(dir);
@@ -72,7 +93,9 @@ export async function importZip(zipFile, onProgress) {
     const blob = await entry.async("blob");
     const type = name.endsWith(".wav") ? "audio/wav" : name.endsWith(".json") ? "application/json" : "application/octet-stream";
     const file = new File([blob], name, { type });
-    await fp.upload("data", dir, file, {}, { notify: false });
+    // FilePicker.upload reports failure by returning false/undefined, not by throwing
+    const res = await fp.upload("data", dir, file, {}, { notify: false });
+    if (!res || res.status !== "success") throw new Error(`upload of ${name} failed${res?.message ? ": " + res.message : ""}`);
     done++;
     onProgress?.(done, entries.length, name);
   }

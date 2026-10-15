@@ -1,5 +1,5 @@
 // Minimal Foundry VTT client stub — just enough of the v13 API surface that
-// musslop-foundry touches, so the real module code can run in a plain page.
+// musloop-foundry touches, so the real module code can run in a plain page.
 // NOT Foundry: behaviour follows the documented API (see test report).
 //
 //   ?user=gm|player   -> game.user.isGM
@@ -213,7 +213,7 @@
 
   // ---- boot: load module.json, translations, the module's esmodules, run the hook sequence
   window.__boot = async () => {
-    const mod = await (await fetch("/modules/musslop-foundry/module.json")).json();
+    const mod = await (await fetch("/modules/musloop-foundry/module.json")).json();
     game.modules.set(mod.id, { id: mod.id, active: true, ...mod });
     for (const css of mod.styles || []) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = `/modules/${mod.id}/${css}`; document.head.appendChild(l); }
     for (const js of mod.esmodules) await import(`/modules/${mod.id}/${js}`);

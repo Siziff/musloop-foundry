@@ -1,12 +1,12 @@
-"""End-to-end test of the musslop-foundry module against a Foundry API stub.
+"""End-to-end test of the musloop-foundry module against a Foundry API stub.
 
 Two browser pages share one origin: a GM and a player (BroadcastChannel =
 module socket). The real module code (unchanged) is loaded as an ES module.
 
 Steps:
   1. boot GM: init / i18nInit / ready hooks, settings, keybindings, controls
-  2. GM imports the real musslop *_foundry.zip through the desk (file input)
-     -> files land in Data/musslop/<slug>/ via FilePicker.upload
+  2. GM imports the real musloop *_foundry.zip through the desk (file input)
+     -> files land in Data/musloop/<slug>/ via FilePicker.upload
   3. library scan finds the track; GM loads + plays; player follows
   4. GM cues a scene ("soon"), cancel, next, fade; player mirrors each step
   5. late joiner (second player) gets the snapshot and resumes mid-loop
@@ -20,7 +20,7 @@ from playwright.async_api import async_playwright
 CH = os.environ.get("CHROME") or None   # None = Playwright's bundled Chromium
 WWW = os.path.join(os.path.dirname(os.path.abspath(__file__)), "www")
 MODULE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA = os.path.join(__import__("tempfile").gettempdir(), "musslop-foundry-test-data")
+DATA = os.path.join(__import__("tempfile").gettempdir(), "musloop-foundry-test-data")
 ZIP = os.environ.get("TRACK_ZIP") or (sys.argv[1] if len(sys.argv) > 1 else "")
 
 
@@ -29,11 +29,11 @@ class H(http.server.SimpleHTTPRequestHandler):
 
     def translate_path(self, path):
         p = urllib.parse.unquote(path.split("?")[0])
-        if p.startswith("/modules/musslop-foundry/"):
-            return os.path.join(MODULE, p[len("/modules/musslop-foundry/"):])
+        if p.startswith("/modules/musloop-foundry/"):
+            return os.path.join(MODULE, p[len("/modules/musloop-foundry/"):])
         if p.startswith("/data/"):
             return os.path.join(DATA, p[len("/data/"):])
-        if p.startswith("/musslop/"):           # Foundry serves Data/ at the web root
+        if p.startswith("/musloop/") or p.startswith("/musslop/"):   # Foundry serves Data/ at the web root
             return os.path.join(DATA, p.lstrip("/"))
         return os.path.join(WWW, p.lstrip("/"))
 
@@ -107,8 +107,8 @@ async def boot(br, base, user, extra=""):
     errs = []
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.on("console", lambda m: (m.type == "error") and "Failed to load resource" not in m.text and errs.append(m.text))
-    # first library scan browses Data/musslop before it exists: Foundry also errors there and the module catches it
-    pg.on("response", lambda r: r.status >= 400 and not r.url.endswith("/fp/browse?target=musslop") and errs.append(f"HTTP {r.status} {r.url}"))
+    # first library scan browses Data/musloop before it exists: Foundry also errors there and the module catches it
+    pg.on("response", lambda r: r.status >= 400 and not r.url.endswith("/fp/browse?target=musloop") and not r.url.endswith("/fp/browse?target=musslop") and errs.append(f"HTTP {r.status} {r.url}"))
     await pg.goto(f"{base}/foundry.html?user={user}{extra}")
     info = await pg.evaluate("__boot()")
     await pg.click("#gesture")          # user gesture -> audio unlock (game.audio.music exists after this)
@@ -128,34 +128,34 @@ async def main():
         gm, gm_err, info = await boot(ctx, base, "gm")
         kb = info["keybindings"]
         check(len(kb) == 13, f"13 keybindings registered")
-        check(kb.get("musslop-foundry.scene1", "").startswith("musslop: scene"),
-              f"scene keybinding name localized: {kb.get('musslop-foundry.scene1')!r}")
+        check(kb.get("musloop-foundry.scene1", "").startswith("musloop: scene"),
+              f"scene keybinding name localized: {kb.get('musloop-foundry.scene1')!r}")
         ctl = await gm.evaluate("Object.keys(__controls.sounds.tools)")
-        check("musslop" in ctl, f"v13 scene-control tool added to sounds: {ctl}")
-        api = await gm.evaluate("Object.keys(game.modules.get('musslop-foundry').api || {})")
+        check("musloop" in ctl, f"v13 scene-control tool added to sounds: {ctl}")
+        api = await gm.evaluate("Object.keys(game.modules.get('musloop-foundry').api || {})")
         check({"load", "play", "cue", "scene", "next", "fade"} <= set(api), f"macro API exposed: {api}")
 
         print("2. import zip via desk")
-        await gm.evaluate("game.modules.get('musslop-foundry').api.open()")
-        await gm.wait_for_selector("#musslop-desk")
-        await gm.set_input_files("#musslop-desk input[name=zip]", ZIP)
+        await gm.evaluate("game.modules.get('musloop-foundry').api.open()")
+        await gm.wait_for_selector("#musloop-desk")
+        await gm.set_input_files("#musloop-desk input[name=zip]", ZIP)
         await gm.wait_for_function("ui.notifications._all.some(n => /Imported|failed/i.test(n.message))", timeout=60000)
         notes = await gm.evaluate("ui.notifications._all.map(n => n.type + ': ' + n.message)")
         print("   notifications:", notes)
-        slug_dir = [d for d in os.listdir(os.path.join(DATA, "musslop"))] if os.path.isdir(os.path.join(DATA, "musslop")) else []
-        check(slug_dir and os.path.exists(os.path.join(DATA, "musslop", slug_dir[0], "manifest.json")),
-              f"files uploaded to Data/musslop/{slug_dir}")
-        await gm.wait_for_function("(() => { const c = game.modules.get('musslop-foundry').api.controller; return c.track && !c.loading; })()", timeout=60000)
-        st = await gm.evaluate("(() => { const c = game.modules.get('musslop-foundry').api.controller; return {tracks: c.tracks.map(t => t.slug), track: c.track && c.track.slug, loops: c.player.loops.length}; })()")
+        slug_dir = [d for d in os.listdir(os.path.join(DATA, "musloop"))] if os.path.isdir(os.path.join(DATA, "musloop")) else []
+        check(slug_dir and os.path.exists(os.path.join(DATA, "musloop", slug_dir[0], "manifest.json")),
+              f"files uploaded to Data/musloop/{slug_dir}")
+        await gm.wait_for_function("(() => { const c = game.modules.get('musloop-foundry').api.controller; return c.track && !c.loading; })()", timeout=60000)
+        st = await gm.evaluate("(() => { const c = game.modules.get('musloop-foundry').api.controller; return {tracks: c.tracks.map(t => t.slug), track: c.track && c.track.slug, loops: c.player.loops.length}; })()")
         check(st["track"] and st["loops"] > 0, f"library + auto-load after import: {st}")
         slug = st["track"]
 
         print("3. player joins, GM plays")
         pl, pl_err, _ = await boot(ctx, base, "player")
         await pl.wait_for_timeout(2000)        # player's hello (1.5 s) -> GM has nothing playing yet
-        await gm.evaluate("game.modules.get('musslop-foundry').api.play(0)")
-        await pl.wait_for_function("(() => { const c = game.modules.get('musslop-foundry').api.controller; return c.player && c.player.playing; })()", timeout=60000)
-        S = "(() => { const p = game.modules.get('musslop-foundry').api.controller.player; return p ? {playing: p.playing, i: p.loopIndex, pos: p.position(), pending: p.pendingTarget()} : null; })()"
+        await gm.evaluate("game.modules.get('musloop-foundry').api.play(0)")
+        await pl.wait_for_function("(() => { const c = game.modules.get('musloop-foundry').api.controller; return c.player && c.player.playing; })()", timeout=60000)
+        S = "(() => { const p = game.modules.get('musloop-foundry').api.controller.player; return p ? {playing: p.playing, i: p.loopIndex, pos: p.position(), pending: p.pendingTarget()} : null; })()"
         g, q = await gm.evaluate(S), await pl.evaluate(S)
         check(g["playing"] and q["playing"] and g["i"] == q["i"] == 0, f"player follows play: gm={g['i']} pl={q['i']}")
         check(abs(g["pos"] - q["pos"]) < 1.0, f"positions close after load: gm={g['pos']:.2f} pl={q['pos']:.2f} (player had to fetch+decode first)")
@@ -164,10 +164,10 @@ async def main():
         check(abs(g["pos"] - q["pos"]) < 0.45, f"after snapshot: drift {abs(g['pos'] - q['pos'])*1000:.0f} ms")
 
         print("4. cues")
-        man = await gm.evaluate("game.modules.get('musslop-foundry').api.controller.track.manifest")
+        man = await gm.evaluate("game.modules.get('musloop-foundry').api.controller.track.manifest")
         nloops = len(man["loops"])
         sc = next((x for x in man["scenes"] if x["loop_index"] != 0), man["scenes"][0])
-        await gm.evaluate(f"game.modules.get('musslop-foundry').api.scene({json.dumps(sc['name'])})")
+        await gm.evaluate(f"game.modules.get('musloop-foundry').api.scene({json.dumps(sc['name'])})")
         await pl.wait_for_timeout(400)
         g, q = await gm.evaluate(S), await pl.evaluate(S)
         want = sc["loop_index"] if sc["cue"] != "now" else None
@@ -176,14 +176,14 @@ async def main():
             check(g["i"] == q["i"] == sc["loop_index"], f"scene {sc['name']!r} (now) switched on both: gm={g['i']} pl={q['i']}")
         else:
             check(g["pending"] == want and q["pending"] == want, f"scene {sc['name']!r} ({sc['cue']}) queued on both: gm={g['pending']} pl={q['pending']}")
-        await gm.evaluate("game.modules.get('musslop-foundry').api.cancel()")
+        await gm.evaluate("game.modules.get('musloop-foundry').api.cancel()")
         await pl.wait_for_timeout(400)
         g, q = await gm.evaluate(S), await pl.evaluate(S)
         check(g["pending"] is None and q["pending"] is None, "cancel mirrored")
         last = nloops - 1
         cur = (await gm.evaluate(S))["i"]
         tgt = last if cur != last else 0
-        await gm.evaluate(f"game.modules.get('musslop-foundry').api.cue({tgt}, 'now')")
+        await gm.evaluate(f"game.modules.get('musloop-foundry').api.cue({tgt}, 'now')")
         await pl.wait_for_timeout(1200)
         g, q = await gm.evaluate(S), await pl.evaluate(S)
         check(g["i"] == tgt and q["i"] == tgt, f"cue 'now' -> part {tgt} on both: gm={g['i']} pl={q['i']}")
@@ -204,22 +204,22 @@ async def main():
 
         print("5. late joiner")
         late, late_err, _ = await boot(ctx, base, "player")
-        await late.wait_for_function("(() => { const c = game.modules.get('musslop-foundry').api.controller; return c.player && c.player.playing; })()", timeout=60000)
+        await late.wait_for_function("(() => { const c = game.modules.get('musloop-foundry').api.controller; return c.player && c.player.playing; })()", timeout=60000)
         g, l = await gm.evaluate(S), await late.evaluate(S)
         check(l["i"] == g["i"] and abs(l["pos"] - g["pos"]) < 0.6, f"late join resumes mid-loop: gm={g['i']}@{g['pos']:.2f} late={l['i']}@{l['pos']:.2f}")
 
         print("6. fade")
-        await gm.evaluate("game.modules.get('musslop-foundry').api.fade(1)")
+        await gm.evaluate("game.modules.get('musloop-foundry').api.fade(1)")
         await pl.wait_for_timeout(1500)
         g, q = await gm.evaluate(S), await pl.evaluate(S)
         check(not g["playing"] and not q["playing"], "fade stops everyone")
 
         print("7. Foundry volume routing")
-        routed = await gm.evaluate("""(() => { const p = game.modules.get('musslop-foundry').api.controller.player;
+        routed = await gm.evaluate("""(() => { const p = game.modules.get('musloop-foundry').api.controller.player;
             const ctx = game.audio.music; return {ctxIsMusic: p.ctx === ctx, hasGainNode: !!ctx.gainNode}; })()""")
         # the player's master is connected either to ctx.destination (bypasses the Music slider) or ctx.gainNode
         conn = await gm.evaluate("""(async () => {
-            const c = game.modules.get('musslop-foundry').api.controller; const ctx = game.audio.music;
+            const c = game.modules.get('musloop-foundry').api.controller; const ctx = game.audio.music;
             // probe: mute the core Music gain; if the module output still reaches the destination it bypasses the slider
             const an = ctx.createAnalyser(); an.fftSize = 2048;
             ctx.destination.channelCount; const p = c.player;

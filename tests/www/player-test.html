@@ -4,7 +4,7 @@
 <body>
 <pre id="log"></pre>
 <script type="module">
-import { MusslopPlayer } from "/module/scripts/loop-player.js";
+import { MusloopPlayer } from "/module/scripts/loop-player.js";
 
 const log = (...a) => { document.getElementById("log").textContent += a.join(" ") + "\n"; };
 window.__log = log;
@@ -27,7 +27,7 @@ window.setup = async () => {
   const mute = ctx.createGain(); mute.gain.value = 0;
   rec.connect(mute); mute.connect(ctx.destination);
   const bus = ctx.createGain(); bus.connect(rec);
-  const p = new MusslopPlayer(ctx, { destination: bus });
+  const p = new MusloopPlayer(ctx, { destination: bus });
   const manifest = await (await fetch("/track/manifest.json")).json();
   await p.load(manifest, async f => (await fetch("/track/" + f)).arrayBuffer());
   window.T = { ctx, p, manifest, chunks, t0: null, events: [] };

@@ -1,5 +1,5 @@
 /**
- * Shared playback controller: one MusslopPlayer per client, driven either by
+ * Shared playback controller: one MusloopPlayer per client, driven either by
  * the local GM's actions or by messages from the GM over the module socket.
  *
  * Protocol (GM -> everyone):
@@ -7,7 +7,7 @@
  *   {op:"play",  slug, index, at}               start looping part `index`; `at` = GM audio-clock
  *                                                time is NOT portable, so players start "now"
  *                                                and the GM's later snapshot keeps drift small
- *   {op:"cue",   decision}                      decision from MusslopPlayer.cue()
+ *   {op:"cue",   decision}                      decision from MusloopPlayer.cue()
  *   {op:"cancel"} / {op:"stop"} / {op:"fade", sec}
  *   {op:"mode",  mode} / {op:"crossfade", sec}
  *   {op:"state", snapshot, slug}                periodic + on request: full state for late joiners
@@ -15,7 +15,7 @@
  *   {op:"hello"}                                "send me the state"
  */
 import { MODULE_ID, SOCKET, log, i18n } from "./const.js";
-import { MusslopPlayer } from "./loop-player.js";
+import { MusloopPlayer } from "./loop-player.js";
 import { scanLibrary, fetchTrackFile, fetchPackIndexes, installPackTrack, DEFAULT_PACK_INDEX } from "./library.js";
 
 class Controller {
@@ -43,7 +43,7 @@ class Controller {
     const ctx = game.audio.music || game.audio.context;
     if (!ctx) throw new Error("audio is locked until the first click in Foundry");
     // connect through Foundry's music gain node so the core "Music" volume slider applies
-    this.player = new MusslopPlayer(ctx, { destination: ctx.gainNode || null });
+    this.player = new MusloopPlayer(ctx, { destination: ctx.gainNode || null });
     this.player.setVolume(game.settings.get(MODULE_ID, "volume"));
     this.player.tails = game.settings.get(MODULE_ID, "tails");
     this.player.transitionMode = this.mode;
@@ -57,7 +57,7 @@ class Controller {
     if (!(game.audio.music || game.audio.context)) {
       if (!this._unlockNoted && !this.isGM) {
         this._unlockNoted = true;
-        ui.notifications?.info(i18n("MUSSLOP.ClickToHear"));
+        ui.notifications?.info(i18n("MUSLOOP.ClickToHear"));
       }
       await game.audio.unlock;
     }
@@ -91,9 +91,9 @@ class Controller {
     try {
       await installPackTrack(track, (phase, done, total) => { this.installing = { slug: track.slug, phase, done, total }; this.emit(); });
       await this.refreshLibrary();
-      ui.notifications?.info(`musslop: ${track.name} installed`);
+      ui.notifications?.info(`musloop: ${track.name} installed`);
     } catch (e) {
-      ui.notifications?.error(`musslop: ${track.name} — ${e.message || e}`);
+      ui.notifications?.error(`musloop: ${track.name} — ${e.message || e}`);
       log.error(e);
     } finally { this.installing = null; this.emit(); }
   }
@@ -102,7 +102,7 @@ class Controller {
   async loadTrack(slug, { broadcast = true } = {}) {
     if (!this.tracks.length) await this.refreshLibrary();
     const entry = this.tracks.find(t => t.slug === slug);
-    if (!entry) { ui.notifications?.warn(`musslop: track "${slug}" not found in Data/musslop`); return null; }
+    if (!entry) { ui.notifications?.warn(`musloop: track "${slug}" not found in Data/musloop`); return null; }
     const p = await this.readyPlayer();
     this.loading = { done: 0, total: 1 };
     this.emit();

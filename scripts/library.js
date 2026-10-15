@@ -1,8 +1,8 @@
 /**
- * Track library: discovers musslop exports under Data/musslop/<slug>/ and
+ * Track library: discovers musloop exports under Data/musloop/<slug>/ and
  * imports *_foundry.zip files there (upload via FilePicker).
  */
-import { MODULE_ID, ROOT_DIR, log } from "./const.js";
+import { MODULE_ID, ROOT_DIR, LEGACY_ROOT_DIRS, MANIFEST_FORMATS, log } from "./const.js";
 
 /** JSZip: Foundry does not expose it as a global — use ours (vendor/jszip.min.js, MIT). */
 async function getJSZip() {
@@ -21,7 +21,7 @@ async function getJSZip() {
 /** FilePicker.browse returns URL-encoded paths ("My%20Track"); compare/fetch decoded names. */
 const decodePath = p => { try { return decodeURIComponent(p); } catch (e) { return p; } };
 
-/** Folder name for a track: keep letters of any script (Cyrillic, CJK…), like musslop's export. */
+/** Folder name for a track: keep letters of any script (Cyrillic, CJK…), like musloop's export. */
 export function slugify(s) {
   return String(s || "").normalize("NFC").replace(/[^\p{L}\p{N}_\-]+/gu, "_").replace(/^_+|_+$/g, "") || "track";
 }
@@ -37,21 +37,25 @@ async function ensureDir(path) {
   catch (e) { if (!/EEXIST|already exists/i.test(String(e))) throw e; }
 }
 
-/** List track folders that contain a manifest.json. */
+/** List track folders that contain a manifest.json (current + legacy roots). */
 export async function scanLibrary() {
   const fp = FP();
   const out = [];
-  let root;
-  try { root = await fp.browse("data", ROOT_DIR); }
-  catch (e) { return out; } // folder does not exist yet
-  for (const rawDir of root.dirs || []) {
+  const dirs = [];
+  for (const base of [ROOT_DIR, ...LEGACY_ROOT_DIRS]) {
+    try { dirs.push(...((await fp.browse("data", base)).dirs || [])); }
+    catch (e) { /* folder does not exist (yet) */ }
+  }
+  for (const rawDir of dirs) {
     const dir = decodePath(rawDir);
     try {
       const d = await fp.browse("data", dir);
       const manifestPath = (d.files || []).map(decodePath).find(f => f.endsWith("/manifest.json"));
       if (!manifestPath) continue;
       const manifest = await (await fetch(encodeURI(manifestPath), { cache: "no-store" })).json();
-      if (manifest.format !== "musslop-loops") continue;
+      if (!MANIFEST_FORMATS.includes(manifest.format)) continue;
+      // same track in both roots (re-imported after the rename): keep the new one
+      if (out.some(t => t.slug === dir.split("/").pop())) continue;
       out.push({ dir, slug: dir.split("/").pop(), name: manifest.track || dir.split("/").pop(), manifest });
     } catch (e) { log.warn("skip", dir, e); }
   }
@@ -67,8 +71,8 @@ export async function fetchTrackFile(track, file) {
 }
 
 /**
- * Import a *_foundry.zip produced by musslop: unpack in the browser (JSZip
- * ships with Foundry) and upload each file to Data/musslop/<slug>/.
+ * Import a *_foundry.zip produced by musloop: unpack in the browser (JSZip
+ * ships with Foundry) and upload each file to Data/musloop/<slug>/.
  * @param {File|Blob} zipFile
  * @param {(done:number,total:number,name:string)=>void} [onProgress]
  * @returns {{slug:string, dir:string, files:number, manifest:object}}
@@ -77,9 +81,9 @@ export async function importZip(zipFile, onProgress) {
   const JSZip = await getJSZip();
   const zip = await JSZip.loadAsync(zipFile);
   const manifestEntry = zip.file("manifest.json");
-  if (!manifestEntry) throw new Error("manifest.json not found — is this a musslop export?");
+  if (!manifestEntry) throw new Error("manifest.json not found — is this a musloop export?");
   const manifest = JSON.parse(await manifestEntry.async("string"));
-  if (manifest.format !== "musslop-loops") throw new Error("Not a musslop-loops manifest");
+  if (!MANIFEST_FORMATS.includes(manifest.format)) throw new Error("Not a musloop-loops manifest");
   const slug = slugify(manifest.slug || manifest.track || (zipFile.name || "track").replace(/_foundry\.zip$|\.zip$/i, ""));
   const dir = `${ROOT_DIR}/${slug}`;
   await ensureDir(ROOT_DIR);
@@ -105,13 +109,13 @@ export async function importZip(zipFile, onProgress) {
 // ------------------------------------------------------------------ packs
 /**
  * Pack sources are JSON indexes (default: the official one in this repo):
- * { "format": "musslop-packs", "version": 1,
+ * { "format": "musloop-packs", "version": 1,
  *   "packs": [{ "id", "name", "description", "tags": [], "license", "credits",
  *               "tracks": [{ "slug", "name", "artist", "zip", "size_mb", "license", "url" }] }] }
- * Each track zip is a regular musslop *_foundry.zip (one track per zip), so a
+ * Each track zip is a regular musloop *_foundry.zip (one track per zip), so a
  * GM can install single tracks and the files stay small.
  */
-export const DEFAULT_PACK_INDEX = "https://raw.githubusercontent.com/Siziff/musslop-foundry/main/packs/index.json";
+export const DEFAULT_PACK_INDEX = "https://raw.githubusercontent.com/Siziff/musloop-foundry/main/packs/index.json";
 
 export async function fetchPackIndexes(urls) {
   const out = [];
@@ -120,7 +124,7 @@ export async function fetchPackIndexes(urls) {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const idx = await r.json();
-      if (idx.format !== "musslop-packs") throw new Error("not a musslop-packs index");
+      if (idx.format !== "musloop-packs") throw new Error("not a musloop-packs index");
       for (const p of idx.packs || []) out.push({ ...p, source: url });
     } catch (e) { log.warn("pack index failed", url, e); out.push({ id: `err:${url}`, name: url, error: String(e.message || e), tracks: [] }); }
   }

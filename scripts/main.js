@@ -4,37 +4,37 @@ import { toggleDesk, getDesk } from "./app.js";
 
 Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "volume", {
-    name: "MUSSLOP.Setting.Volume", hint: "MUSSLOP.Setting.VolumeHint",
+    name: "MUSLOOP.Setting.Volume", hint: "MUSLOOP.Setting.VolumeHint",
     scope: "client", config: true, type: Number, default: 0.8,
     range: { min: 0, max: 1, step: 0.01 },
     onChange: v => controller.player?.setVolume(v),
   });
   game.settings.register(MODULE_ID, "packSources", {
-    name: "MUSSLOP.Setting.PackSources", hint: "MUSSLOP.Setting.PackSourcesHint",
+    name: "MUSLOOP.Setting.PackSources", hint: "MUSLOOP.Setting.PackSourcesHint",
     scope: "world", config: true, type: String, default: "",
     onChange: () => controller.refreshPacks(),
   });
   game.settings.register(MODULE_ID, "tails", {
-    name: "MUSSLOP.Setting.Tails", hint: "MUSSLOP.Setting.TailsHint",
+    name: "MUSLOOP.Setting.Tails", hint: "MUSLOOP.Setting.TailsHint",
     scope: "client", config: true, type: Boolean, default: true,
     onChange: v => { if (controller.player) controller.player.tails = v; },
   });
 
   // Keybindings (GM only for transport; the desk toggle for everyone)
   game.keybindings.register(MODULE_ID, "desk", {
-    name: "MUSSLOP.Keybind.Desk", editable: [{ key: "KeyM", modifiers: ["Alt"] }],
+    name: "MUSLOOP.Keybind.Desk", editable: [{ key: "KeyM", modifiers: ["Alt"] }],
     onDown: () => { toggleDesk(); return true; },
   });
   game.keybindings.register(MODULE_ID, "next", {
-    name: "MUSSLOP.Keybind.Next", editable: [{ key: "ArrowRight", modifiers: ["Alt"] }], restricted: true,
+    name: "MUSLOOP.Keybind.Next", editable: [{ key: "ArrowRight", modifiers: ["Alt"] }], restricted: true,
     onDown: () => { controller.advance(); return true; },
   });
   game.keybindings.register(MODULE_ID, "cancel", {
-    name: "MUSSLOP.Keybind.Cancel", editable: [{ key: "Backspace", modifiers: ["Alt"] }], restricted: true,
+    name: "MUSLOOP.Keybind.Cancel", editable: [{ key: "Backspace", modifiers: ["Alt"] }], restricted: true,
     onDown: () => { controller.cancel(); return true; },
   });
   game.keybindings.register(MODULE_ID, "fade", {
-    name: "MUSSLOP.Keybind.Fade", editable: [{ key: "KeyF", modifiers: ["Alt"] }], restricted: true,
+    name: "MUSLOOP.Keybind.Fade", editable: [{ key: "KeyF", modifiers: ["Alt"] }], restricted: true,
     onDown: () => { controller.fade(2.5); return true; },
   });
 });
@@ -44,7 +44,7 @@ Hooks.once("init", () => {
 Hooks.once("i18nInit", () => {
   for (let n = 1; n <= 9; n++) {
     game.keybindings.register(MODULE_ID, `scene${n}`, {
-      name: game.i18n.format("MUSSLOP.Keybind.Scene", { n }),
+      name: game.i18n.format("MUSLOOP.Keybind.Scene", { n }),
       editable: [{ key: `Digit${n}`, modifiers: ["Alt", "Shift"] }], restricted: true,
       onDown: () => {
         const sc = (controller.track?.manifest.scenes || []).find(s => String(s.hotkey) === String(n));
@@ -62,7 +62,7 @@ Hooks.once("ready", async () => {
   if (!game.user.isGM) setTimeout(() => controller.hello(), 1500);
   // when the player first clicks (audio unlocked) and music is already running, re-sync
   if (!game.user.isGM && game.audio.locked !== false) game.audio.unlock?.then(() => controller.hello());
-  // expose a small API for macros: game.modules.get("musslop-foundry").api
+  // expose a small API for macros: game.modules.get("musloop-foundry").api
   const mod = game.modules.get(MODULE_ID);
   if (mod) mod.api = {
     controller,
@@ -76,14 +76,14 @@ Hooks.once("ready", async () => {
     stop: () => controller.stop(),
     fade: sec => controller.fade(sec),
   };
-  log.info("ready", `${controller.tracks.length} track(s) in Data/musslop`);
+  log.info("ready", `${controller.tracks.length} track(s) in Data/musloop`);
 });
 
 // Scene-control button (sounds layer). v13: controls is a Record; v12: an Array.
 Hooks.on("getSceneControlButtons", controls => {
   const tool = {
-    name: "musslop",
-    title: "MUSSLOP.Control",
+    name: "musloop",
+    title: "MUSLOOP.Control",
     icon: "fa-solid fa-music",
     button: true,
     visible: true,
@@ -95,7 +95,7 @@ Hooks.on("getSceneControlButtons", controls => {
   } else {
     // v13+
     const group = controls.sounds || controls.tokens;
-    if (group) group.tools.musslop = { ...tool, order: Object.keys(group.tools).length, onChange: () => toggleDesk() };
+    if (group) group.tools.musloop = { ...tool, order: Object.keys(group.tools).length, onChange: () => toggleDesk() };
   }
 });
 

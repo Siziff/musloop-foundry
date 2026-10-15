@@ -1,4 +1,4 @@
-"""Drive musslop-foundry's loop-player.js in Chromium on a real musslop export
+"""Drive musloop-foundry's loop-player.js in Chromium on a real musloop export
 and check the audio it produces.
 
 Scenario (one continuous session):

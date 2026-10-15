@@ -1,7 +1,7 @@
 /**
- * musslop loop player for Foundry VTT — a port of musslop's LoopPlayer.
+ * musloop loop player for Foundry VTT — a port of musloop's LoopPlayer.
  *
- * Plays a track exported by musslop (manifest.json + WAV loops) as adaptive
+ * Plays a track exported by musloop (manifest.json + WAV loops) as adaptive
  * music: every loop pass is a separately scheduled AudioBufferSourceNode on
  * the audio clock, so repeats are sample-accurate and transitions can be
  * planned for a musical boundary.
@@ -19,7 +19,7 @@ const FADE = 0.006;        // micro-fade at every seam (clicks)
 const LOOKAHEAD = 0.35;    // schedule the next chunk this far ahead
 const TAIL_GAIN = 0.9;
 
-export class MusslopPlayer {
+export class MusloopPlayer {
   /**
    * @param {AudioContext} ctx       Foundry's music context (game.audio.music)
    * @param {object}  opts
@@ -54,7 +54,7 @@ export class MusslopPlayer {
 
   // ------------------------------------------------------------ loading
   /**
-   * Load a musslop export. `fetchBuffer(file)` must return an ArrayBuffer for
+   * Load a musloop export. `fetchBuffer(file)` must return an ArrayBuffer for
    * a file name from the manifest (the caller knows where the files live).
    */
   async load(manifest, fetchBuffer, { onProgress } = {}) {

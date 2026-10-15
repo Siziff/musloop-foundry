@@ -1,5 +1,5 @@
 /**
- * The musslop desk — ApplicationV2 window for the GM (read-only for players).
+ * The musloop desk — ApplicationV2 window for the GM (read-only for players).
  */
 import { MODULE_ID, i18n, log } from "./const.js";
 import { controller } from "./sync.js";
@@ -10,31 +10,31 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const fmt = s => { if (s == null || isNaN(s)) return "–"; const m = Math.floor(s / 60), r = s % 60; return `${m}:${r.toFixed(0).padStart(2, "0")}`; };
 const COLORS = ["#6a8dff", "#34d399", "#ffb84f", "#ff5b8a", "#a06bff", "#4fd6ff", "#c9e04f", "#ff8a4f", "#5bffb0", "#fb6a6a", "#8a9bff", "#ffd75b"];
 
-export class MusslopDesk extends HandlebarsApplicationMixin(ApplicationV2) {
+export class MusloopDesk extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
-    id: "musslop-desk",
+    id: "musloop-desk",
     tag: "div",
-    classes: ["musslop"],
-    window: { title: "MUSSLOP.Title", icon: "fa-solid fa-music", resizable: true },
+    classes: ["musloop"],
+    window: { title: "MUSLOOP.Title", icon: "fa-solid fa-music", resizable: true },
     position: { width: 560, height: 640 },
     actions: {
-      selectTrack: MusslopDesk.#onSelectTrack,
-      importZip: MusslopDesk.#onImportZip,
-      refresh: MusslopDesk.#onRefresh,
-      play: MusslopDesk.#onPlay,
-      stop: MusslopDesk.#onStop,
-      next: MusslopDesk.#onNext,
-      cancel: MusslopDesk.#onCancel,
-      fade: MusslopDesk.#onFade,
-      mode: MusslopDesk.#onMode,
-      part: MusslopDesk.#onPart,
-      scene: MusslopDesk.#onScene,
-      togglePacks: MusslopDesk.#onTogglePacks,
-      installTrack: MusslopDesk.#onInstallTrack,
+      selectTrack: MusloopDesk.#onSelectTrack,
+      importZip: MusloopDesk.#onImportZip,
+      refresh: MusloopDesk.#onRefresh,
+      play: MusloopDesk.#onPlay,
+      stop: MusloopDesk.#onStop,
+      next: MusloopDesk.#onNext,
+      cancel: MusloopDesk.#onCancel,
+      fade: MusloopDesk.#onFade,
+      mode: MusloopDesk.#onMode,
+      part: MusloopDesk.#onPart,
+      scene: MusloopDesk.#onScene,
+      togglePacks: MusloopDesk.#onTogglePacks,
+      installTrack: MusloopDesk.#onInstallTrack,
     },
   };
 
-  static PARTS = { main: { template: `modules/${MODULE_ID}/templates/desk.hbs`, scrollable: [".musslop-body"] } };
+  static PARTS = { main: { template: `modules/${MODULE_ID}/templates/desk.hbs`, scrollable: [".musloop-body"] } };
 
   constructor(...args) {
     super(...args);
@@ -68,8 +68,8 @@ export class MusslopDesk extends HandlebarsApplicationMixin(ApplicationV2) {
       nowLabel: cur ? cur.name : (loops[p?.loopIndex || 0]?.name || "—"),
       pass: playing ? p.loopCount : null,
       next: pending != null && loops[pending] ? loops[pending].name : null,
-      etaText: eta != null ? `${i18n("MUSSLOP.In")} ${Math.max(0, eta).toFixed(0)} s` : (pending != null ? i18n("MUSSLOP.AtBoundary") : i18n("MUSSLOP.Pick")),
-      modes: ["natural", "soon", "now"].map(m => ({ id: m, label: i18n(`MUSSLOP.Mode${m[0].toUpperCase()}${m.slice(1)}`), on: controller.mode === m })),
+      etaText: eta != null ? `${i18n("MUSLOOP.In")} ${Math.max(0, eta).toFixed(0)} s` : (pending != null ? i18n("MUSLOOP.AtBoundary") : i18n("MUSLOOP.Pick")),
+      modes: ["natural", "soon", "now"].map(m => ({ id: m, label: i18n(`MUSLOOP.Mode${m[0].toUpperCase()}${m.slice(1)}`), on: controller.mode === m })),
       scenes: scenes.map((s, k) => ({
         ...s, k, hotkey: s.hotkey, partName: loops[s.loop_index]?.name,
         on: playing && p.loopIndex === s.loop_index, queued: pending === s.loop_index,
@@ -101,7 +101,7 @@ export class MusslopDesk extends HandlebarsApplicationMixin(ApplicationV2) {
       const v = +ev.target.value / 100;
       game.settings.set(MODULE_ID, "volume", v);
       controller.player?.setVolume(v);
-      el.querySelector(".musslop-vol-num").textContent = `${Math.round(v * 100)}%`;
+      el.querySelector(".musloop-vol-num").textContent = `${Math.round(v * 100)}%`;
     });
     el.querySelector("input[name=zip]")?.addEventListener("change", ev => this._importFile(ev.target.files?.[0]));
     // ETA ticker while a transition is pending
@@ -113,16 +113,16 @@ export class MusslopDesk extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _importFile(file) {
     if (!file) return;
-    const note = ui.notifications.info(i18n("MUSSLOP.Importing", { name: file.name }), { permanent: true });
+    const note = ui.notifications.info(i18n("MUSLOOP.Importing", { name: file.name }), { permanent: true });
     try {
       const res = await importZip(file, (d, n, name) => log.info(`upload ${d}/${n} ${name}`));
       ui.notifications.remove?.(note);
-      ui.notifications.info(i18n("MUSSLOP.Imported", { name: res.slug, n: res.files }));
+      ui.notifications.info(i18n("MUSLOOP.Imported", { name: res.slug, n: res.files }));
       await controller.refreshLibrary();
       await controller.loadTrack(res.slug);
     } catch (e) {
       ui.notifications.remove?.(note);
-      ui.notifications.error(i18n("MUSSLOP.ImportFailed", { error: e.message || e }));
+      ui.notifications.error(i18n("MUSLOOP.ImportFailed", { error: e.message || e }));
       log.error(e);
     }
   }
@@ -162,7 +162,7 @@ export class MusslopDesk extends HandlebarsApplicationMixin(ApplicationV2) {
 let desk = null;
 export function toggleDesk() {
   if (desk?.rendered) { desk.close(); return; }
-  desk = desk || new MusslopDesk();
+  desk = desk || new MusloopDesk();
   desk.render({ force: true });
 }
 export function getDesk() { return desk; }

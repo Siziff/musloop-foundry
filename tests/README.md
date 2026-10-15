@@ -21,7 +21,7 @@ pip install playwright numpy
 playwright install chromium
 ```
 
-You need a track exported from musslop with **Files → Foundry VTT (zip)**.
+You need a track exported from musloop with **Files → Foundry VTT (zip)**.
 
 ## Run
 

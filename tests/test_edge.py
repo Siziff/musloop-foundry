@@ -3,7 +3,7 @@ ZIP_EDGE = sys.argv[1]
 sys.argv = ["x"]
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_module.py")).read().split("async def boot")[0])
 from playwright.async_api import async_playwright
-C = "game.modules.get('musslop-foundry').api"
+C = "game.modules.get('musloop-foundry').api"
 async def page(br, base, q, gesture=True):
     pg = await br.new_page(); errs = []
     pg.on("pageerror", lambda e: errs.append(str(e)))
@@ -12,8 +12,8 @@ async def page(br, base, q, gesture=True):
     if gesture: await pg.click("#gesture")
     return pg, errs
 async def main():
-    shutil.rmtree(DATA, ignore_errors=True); os.makedirs(os.path.join(DATA, "musslop"))
-    shutil.copytree(os.path.join(WWW, "track"), os.path.join(DATA, "musslop", "Village_Consort"))
+    shutil.rmtree(DATA, ignore_errors=True); os.makedirs(os.path.join(DATA, "musloop"))
+    shutil.copytree(os.path.join(WWW, "track"), os.path.join(DATA, "musloop", "Village_Consort"))
     srv = serve(); base = f"http://127.0.0.1:{srv.server_address[1]}"
     async with async_playwright() as p:
         br = await p.chromium.launch(executable_path=CH, args=["--autoplay-policy=no-user-gesture-required"])
@@ -40,21 +40,30 @@ async def main():
         print("   v12 tools:", tools, "| playing:", await g12.evaluate(f"{C}.controller.player.playing"), "| errors:", e12[:2])
         print("C. JSZip not global (as in real Foundry) -> module loads vendor/jszip.min.js")
         gz, ez = await page(ctx, base, "user=gm")
-        await gz.evaluate(f"{C}.open()"); await gz.wait_for_selector("#musslop-desk")
-        await gz.set_input_files("#musslop-desk input[name=zip]", ZIP_EDGE)
+        await gz.evaluate(f"{C}.open()"); await gz.wait_for_selector("#musloop-desk")
+        await gz.set_input_files("#musloop-desk input[name=zip]", ZIP_EDGE)
         await gz.wait_for_function("ui.notifications._all.some(n => /Imported|failed/i.test(n.message))", timeout=60000)
         print("   ", await gz.evaluate("ui.notifications._all.slice(-1)[0].type + ': ' + ui.notifications._all.slice(-1)[0].message"))
-        print("D. folder with a space in Data/musslop (hand-unpacked)")
-        shutil.copytree(os.path.join(WWW, "track"), os.path.join(DATA, "musslop", "Village Consort"))
+        print("D. folder with a space in Data/musloop (hand-unpacked)")
+        shutil.copytree(os.path.join(WWW, "track"), os.path.join(DATA, "musloop", "Village Consort"))
         gs, es = await page(ctx, base, "user=gm")
         print("   library:", await gs.evaluate(f"{C}.controller.tracks.map(t => t.slug)"))
         await gs.evaluate(f"(async () => {{ await {C}.load('Village Consort'); {C}.play(0); }})()")
         await gs.wait_for_timeout(600)
         print("   playing:", await gs.evaluate(f"{C}.controller.player.playing"), "| errors:", es[:2])
+        print("F. track imported before the rename (Data/musslop/, format musslop-loops)")
+        legacy = os.path.join(DATA, "musslop", "Old_Track")
+        shutil.copytree(os.path.join(WWW, "track"), legacy)
+        gl, el = await page(ctx, base, "user=gm")
+        libs = await gl.evaluate(f"{C}.controller.tracks.map(t => [t.slug, t.dir, t.manifest.format])")
+        print("   library:", libs)
+        await gl.evaluate(f"(async () => {{ await {C}.load('Old_Track'); {C}.play(0); }})()")
+        await gl.wait_for_timeout(600)
+        print("   legacy track playing:", await gl.evaluate(f"{C}.controller.player.playing"), "| errors:", el[:2])
         print("E. Music volume slider routing")
         r = await gs.evaluate(f"""(() => {{ const p = {C}.controller.player, ctx = game.audio.music;
             // count the master node's outputs: connected to ctx.gainNode (core volume) or straight to destination
-            return {{ hasCoreGain: !!ctx.gainNode, note: 'MusslopPlayer master -> ' + (p._dest === ctx.gainNode ? 'ctx.gainNode (Music slider applies)' : 'ctx.destination (bypasses slider)') }}; }})()""")
+            return {{ hasCoreGain: !!ctx.gainNode, note: 'MusloopPlayer master -> ' + (p._dest === ctx.gainNode ? 'ctx.gainNode (Music slider applies)' : 'ctx.destination (bypasses slider)') }}; }})()""")
         print("  ", r)
         await br.close()
     srv.shutdown()
